@@ -1,173 +1,263 @@
 # InterviewForge
 
-**Practice technical interviews with follow-up questions based on your actual answers—and stress-test your system designs against a reference architecture.**
+[![CI](https://github.com/vihaank1/InterviewForge/actions/workflows/ci.yml/badge.svg)](https://github.com/vihaank1/InterviewForge/actions/workflows/ci.yml) · [MIT License](LICENSE)
 
-InterviewForge combines two complementary workflows in one React + FastAPI app: an **interview room** that remembers what you said and probes recent weak spots, and a **system design studio** that generates diagrams and evaluates *your own* design when you provide one. Sessions and evaluations survive backend restarts in local SQLite storage.
+**Practice technical interviews that build on your answers—and pressure-test your system designs with structured engineering feedback.**
 
-> **Status:** Local-first portfolio project. The backend's automated API tests pass. A full live OpenAI session and a frontend production build have **not** been verified in this environment; you will need an API key and normal npm registry access. Do not treat generated feedback as a hiring prediction.
+InterviewForge unifies two projects into one local-first React + FastAPI application: an **Interview Room** with multi-round contextual follow-ups and SQLite-backed progress, and a **System Design Lab** for generating visual architectures and reviewing candidate-written designs.
 
-## Why use this instead of a single chat prompt?
+> **Screenshot provenance:** All six images below are genuine screenshots from the **two earlier prototype repositories**, preserved here as historical examples. They do **not** depict the new unified InterviewForge UI. A verified recording of the new UI is still on the roadmap.
 
-- **Multi-round context:** Subsequent prompts include recent questions, your answers, and identified weak spots instead of starting from scratch each time.
-- **Recoverable practice:** Session IDs, answer history, feedback, and weighted scores are stored in SQLite. The browser remembers your latest session ID for local resume.
-- **Two sides of system design:** Generate a learning reference, but optionally paste **your design** to receive feedback on *your* trade-offs, not just an LLM grading its own architecture.
-- **Inspect the logic:** Pydantic-validated model outputs, an explicit score formula, and plainly labeled keyword-based bottleneck hints.
+<p align="center">
+  <img src="assets/legacy/technical-interview-results.webp" width="49%" alt="Earlier technical interview feedback screenshot" />
+  <img src="assets/legacy/system-design-diagram.webp" width="49%" alt="Earlier Netflix system design architecture screenshot" />
+</p>
+<p align="center"><sub>Historical prototype examples: answer evaluation and distributed architecture visualization.</sub></p>
 
-## Workflows
+## Why InterviewForge?
 
-```mermaid
+Generic AI chat can produce questions, but practice needs a repeatable feedback loop. InterviewForge stores actual answers and evaluations, identifies recent weak spots, and passes those weak spots into the **next** question. The system design side also distinguishes a **candidate-authored architecture** from an AI-generated reference—so the tool can critique *your choices*, instead of simply grading its own output.
+
+The application is an interview **practice tool**, not a validated predictor of hiring decisions.
+
+## Explore the two workflows
+
+### 1. Interview Room — question → answer → feedback → follow-up
+
+Choose a role, difficulty (**Easy / Medium / Hard**), and engineering focus (**backend, frontend, systems, ML or general**). The platform generates one question, evaluates the answer, and uses the past few rounds to target subsequent questions.
+
+- **Structured evaluation:** Ratings for technical accuracy, reasoning, engineering trade-offs, and communication clarity, with specific strengths, improvements, and weak spots.
+- **Multi-round context:** The latest questions, answers, scores, and weak spots are included when producing the next challenge. This is contextual prompting, not a trained personalization model.
+- **Durable sessions:** SQLite stores the active question and completed rounds. The browser remembers the last session ID so that session can be resumed after restarting the app.
+- **Progress:** Completed round count, average score, recent average, and recurring weaknesses. Finish the interview when you're done.
+
+**Earlier Technical Interview Simulator — home and role selection**
+
+![Earlier role and difficulty selector](assets/legacy/technical-interview-home.webp)
+
+**Earlier prototype — actual interview question**
+
+![Earlier question about concurrency and parallelism](assets/legacy/technical-interview-question.webp)
+
+The captured question asked how **concurrency differs from parallelism**, including an example in a web application. The earlier interface subsequently displayed feedback with a **score of 8/10**, noting a useful concurrency example while suggesting a more detailed explanation of asynchronous execution:
+
+![Earlier answer evaluation, strengths and weaknesses](assets/legacy/technical-interview-results.webp)
+
+**Important:** The results screenshot shows the *following* question about real-time event processing above feedback from the *previous* concurrency answer. This is evidence of the earlier prototype's interface, not a captured session in today's application.
+
+### 2. System Design Lab — prompt → architecture → diagram → review
+
+Try prompts such as **Design Netflix**, Instagram, Uber, WhatsApp, a URL shortener, a distributed cache, or your own engineering challenge. InterviewForge generates a reference architecture consisting of services, data stores, APIs, caching layers, scaling choices, assumptions and explicit trade-offs.
+
+You can enter **your proposed architecture** alongside the prompt. The reviewer will then evaluate **your design**. If no proposed design is provided, it reviews the generated reference and labels that distinction. Diagram source is rendered using Mermaid.js.
+
+**Earlier System Design Simulator — prompt and summary**
+
+![Earlier Netflix design prompt and architecture summary](assets/legacy/system-design-home.webp)
+
+**Earlier prototype — Netflix architecture and engineering notes**
+
+![Earlier Netflix architecture with services, CDN, databases, and notes](assets/legacy/system-design-diagram.webp)
+
+This Mermaid diagram is a **transcription** of visible connections in that earlier screenshot, not the original model response:
+
+~~~mermaid
+flowchart TD
+  Streaming[Video Streaming Service] --> CDN[CDN]
+  CDN --> User[User]
+  User --> Gateway[API Gateway]
+  Gateway --> Auth[Auth Service]
+  Gateway --> Catalog[Content Catalog Service]
+  Gateway --> Recs[Recommendation Service]
+  Gateway --> Billing[Billing Service]
+  Catalog --> Metadata[(Content Metadata DB)]
+  Recs --> RecDB[(Recommendation DB)]
+  Transcode[Transcoding Service] --> Storage[(Content Storage)]
+  Analytics[Analytics Service] --> AnalyticsDB[(Analytics DB)]
+~~~
+
+**Earlier prototype — real architecture evaluation**
+
+![Earlier Netflix architecture review showing rubric and bottlenecks](assets/legacy/system-design-review.webp)
+
+| Category | Captured earlier score |
+| --- | ---: |
+| Overall | **8/10** |
+| Scalability | 8/10 |
+| Clarity | 7/10 |
+| Completeness | 9/10 |
+
+The captured critique warned that a single API gateway might be a failure point and suggested multi-region failover. A separate rule-based warning read **“No async queue detected → traffic spike risk.”** These are genuine **earlier** results; InterviewForge now uses a different four-dimension design rubric.
+
+*Illustrative interview follow-up, not captured output:* “If the API gateway region fails, how would you keep incoming requests available?”
+
+## How it works
+
+### Interview session flow
+
+~~~mermaid
+flowchart TD
+  Setup[Role + track + difficulty] --> Question[Generate question]
+  Question --> Answer[Submit candidate answer]
+  Answer --> Evaluation[Pydantic-validated AI evaluation]
+  Evaluation --> Score[Calculate weighted score]
+  Score --> Stored[(Save round in SQLite)]
+  Evaluation --> Weak[Identify weak spots]
+  Weak --> Next[Generate follow-up using recent history]
+  Stored --> Next
+  Next --> Answer
+~~~
+
+### System design flow
+
+~~~mermaid
 flowchart LR
-  A[Choose role and track] --> B[AI asks a question]
-  B --> C[Candidate answers]
-  C --> D[Rubric feedback]
-  D --> E[(SQLite history)]
-  E --> F[Next question targets weak spots]
-  F --> C
-```
+  Prompt[Design prompt] --> Reference[Generate reference architecture]
+  Reference --> Mermaid[Render Mermaid diagram]
+  Candidate[Optional candidate-written architecture] --> Review[Choose review target]
+  Reference --> Review
+  Review --> Scores[AI rubric and feedback]
+  Review --> Hints[Keyword-based hints]
+  Scores --> DB[(SQLite)]
+  Hints --> DB
+~~~
 
-```mermaid
-flowchart LR
-  P[System design prompt] --> G[AI reference architecture]
-  G --> M[Mermaid diagram]
-  CAND[Optional candidate design] --> R[Design review]
-  G --> R
-  R --> S[Weighted rubric and risk feedback]
-  R --> H[Heuristic term-presence hints]
-  S --> DB[(SQLite)]
-```
-
-### What is implemented
+### Key engineering decisions
 
 | Capability | Implementation |
 | --- | --- |
-| Multi-round interviewing | Role, difficulty and track selection; answer-scoped evaluation; targeted next question |
-| Progress signals | Weighted scores and recent weak spots from stored session rounds |
-| Durable storage | Local SQLite tables for sessions, rounds and designs; optimistic version check on answer submissions |
-| Design reference | Services, databases, caching, APIs, scaling notes, assumptions, trade-offs, and Mermaid diagram |
-| Candidate design review | Reviews user-written architecture if provided; otherwise clearly labels the target as the generated reference |
-| Input / output validation | Pydantic validation for requests and model responses using OpenAI's structured parse helper |
-| Deterministic checks | Simple keyword-presence warnings for caching, load balancing, replication, CDN and queues |
-| Automated tests | Unit/API tests with a deterministic fake AI provider, requiring no paid API calls |
+| AI orchestration | OpenAI API, default **GPT-4.1-mini**, with distinct question, evaluation, architecture and review prompts |
+| Typed outputs | OpenAI structured parsing into Pydantic response models and bounded scoring values |
+| Persistence | SQLite tables for sessions, interview rounds, and design artifacts; data survives app restarts |
+| Contextual follow-ups | Recent answer history and weak spots passed into each next-question prompt |
+| Duplicate submission protection | Optimistic session-version comparison, plus a transactional round update |
+| Score transparency | Four dimensions combined using published deterministic weights |
+| Architecture review | Prioritizes candidate-written design, if provided; otherwise labels the generated reference |
+| Bottleneck detection | Explicit **regex keyword checks**, not semantic graph verification |
+| Automated tests | Pytest / FastAPI TestClient with an injectable fake AI provider, requiring no paid model calls |
 
-### Evaluation formulas
+**Scoring formulas**
 
-The application calculates weighted values from model-generated per-dimension ratings. The *weights are deterministic*, but the underlying model ratings are **subjective and uncalibrated**.
+- **Technical interviews:** 35% accuracy + 30% reasoning + 20% trade-offs + 15% clarity.
+- **System designs:** 35% scalability + 25% reliability + 25% trade-offs + 15% clarity.
 
-- **Technical interview:** 35% accuracy + 30% reasoning + 20% trade-offs + 15% clarity.
-- **System design:** 35% scalability + 25% reliability + 25% trade-offs + 15% clarity.
+For example, interview ratings **8 / 7 / 6 / 9** produce a weighted **7.5/10**. The arithmetic is reproducible; the *model-assigned ratings are subjective and have not been calibrated against real interviewers.*
 
-Missing-component warnings are regex hints, **not** structural design verification. A phrase such as “no caching” can still count as a mention of caching.
+**Bottleneck checks** flag absent mentions of caching, load balancing, replication/failover, CDN and asynchronous queues. They can misfire: “no caching” still mentions caching, so this is a prompt for discussion rather than a confirmed missing component.
+
+### Example multi-round transcript (test fixture, not live AI output)
+
+~~~text
+Role: Backend Engineer
+Track: backend
+Difficulty: Medium
+
+Round 1: How would you improve API design in a backend service?
+Candidate: I would add an API gateway and cache.
+
+Evaluation:
+  Accuracy 8  | Reasoning 7 | Trade-offs 6 | Clarity 9
+  Weighted score: 7.5/10
+  Identified weak spot: caching
+
+Round 2: How would you improve Caching in a backend service?
+  The completed first round and feedback remain in SQLite.
+~~~
+
+This example reflects a **deterministic fake-model test** in the repository. The real AI provider generates different questions and feedback from actual user responses.
 
 ## Quick start
 
-**Prerequisites:** Python **3.11+**, Node.js **20+**, npm, and a valid **OpenAI API key**. API usage is billed separately; your personal ChatGPT subscription does not automatically cover API charges. The default model is `gpt-4.1-mini`. Check the current pricing for your model before running multiple sessions.
+**Prerequisites:** Python **3.11+**, Node.js **20+**, npm, Git, and an OpenAI API key for live AI interactions. **API requests may incur charges** separate from your ChatGPT subscription. There is no hosted demo yet.
 
 **Terminal 1 — backend**
 
-```bash
+~~~bash
 git clone https://github.com/vihaank1/InterviewForge.git
 cd InterviewForge/backend
+
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
+
 cp .env.example .env
-# Edit backend/.env and set OPENAI_API_KEY
+# Set OPENAI_API_KEY in backend/.env
 python -m uvicorn app.main:app --reload --port 8000
-```
+~~~
 
-On Windows, activate the environment with `.venv\Scripts\activate` and copy the environment template with `copy .env.example .env`.
+Windows users can activate with \`.venv\\Scripts\\activate\` and copy the environment file using \`copy .env.example .env\`. Backend docs: **http://127.0.0.1:8000/docs**.
 
-**Terminal 2 — frontend** (from the repository root)
+**Terminal 2 — frontend**, starting from the repository root:
 
-```bash
+~~~bash
 cd frontend
 npm install
 cp .env.example .env
 npm run dev
-```
+~~~
 
-Open <http://127.0.0.1:5173>. FastAPI docs: <http://127.0.0.1:8000/docs>. The frontend defaults to `http://127.0.0.1:8000` via `VITE_API_URL`.
+Open **http://127.0.0.1:5173**. The frontend connects to \`http://127.0.0.1:8000\` by default using \`VITE_API_URL\`. **Never expose an OpenAI key in frontend variables**; configure it only in the backend.
 
-**Never commit your actual `.env` file or API key.** The repo ignores `.env`, `backend/data/`, virtual environments, and `node_modules/`. The backend allows CORS only from the local frontend origins; change this explicitly if deploying.
+**Test locally (no API key needed)**
 
-### Run tests
-
-```bash
+~~~bash
 cd backend
 python -m pip install -r requirements-dev.txt
 python -m pytest -q
-```
+~~~
 
-Frontend build check (requires internet access to install packages):
+**Build the frontend**
 
-```bash
+~~~bash
 cd frontend
 npm install
 npm run build
-```
+~~~
 
-Once published on GitHub, the included Actions workflow runs backend tests and the frontend production build on pushes and pull requests.
+GitHub Actions runs backend tests and a frontend build automatically: [view CI](https://github.com/vihaank1/InterviewForge/actions).
 
-## A short session example
+## Technology and repository organization
 
-This example illustrates the **tested request flow**, using a fake AI provider from `backend/tests/conftest.py`—**not** a claimed real model transcript:
+| Layer | Technologies |
+| --- | --- |
+| Frontend | React, Vite |
+| Diagrams | Mermaid.js |
+| Backend | Python, FastAPI |
+| Validation | Pydantic |
+| AI | OpenAI API (GPT-4.1-mini by default) |
+| Persistence | SQLite with WAL |
+| Verification | Pytest, TestClient, GitHub Actions |
 
-```text
-POST /api/sessions
-  role: Backend Engineer, track: backend, difficulty: Medium
+The most important files show the system boundaries:
 
-Question: How would you improve API design in a backend service?
-Candidate: I would add an API gateway and cache.
+- [\`backend/app/ai.py\`](backend/app/ai.py) — prompts and typed model responses.
+- [\`backend/app/main.py\`](backend/app/main.py) — HTTP routes and application lifecycle.
+- [\`backend/app/database.py\`](backend/app/database.py) — database schema and connections.
+- [\`backend/app/scoring.py\`](backend/app/scoring.py) — scoring weights, progress metrics and heuristic checks.
+- [\`backend/app/schemas.py\`](backend/app/schemas.py) — Pydantic data contracts.
+- [\`frontend/src/\`](frontend/src) — interview and architecture UI.
+- [\`docs/ARCHITECTURE.md\`](docs/ARCHITECTURE.md) — API endpoints, storage lifecycle and architectural trade-offs.
 
-POST /api/sessions/{id}/answers
-  → scored on accuracy, reasoning, trade-offs and clarity
-  → one weak spot: caching
-  → next question: How would you improve Caching in a backend service?
-  → session round: 2; history saved in SQLite
-```
+## Limitations and what comes next
 
-For earlier prototype screenshots and historical sample outputs, see the original [System Design Simulator](https://github.com/vihaank1/System-Design-Simulator) and [Technical Interview Simulator](https://github.com/vihaank1/technical-interview-simulator). **Those screenshots represent earlier interfaces, not this new combined UI.** A real end-to-end recording of this interface is still needed.
+- **The six screenshots are older prototype UI captures**, not a demonstration of the rebuilt React application. A real video/GIF of the current app is still needed.
+- AI evaluation scores are not validated against human interviewers or employment decisions.
+- SQLite persistence is local; there is **no user authentication, tenant isolation, hosted storage or rate limiting**. Don't expose this prototype to public traffic without hardening it.
+- Keyword warnings can miss real engineering problems or flag valid choices. Mermaid diagrams may fail if the model produces invalid syntax.
+- Submitted answers are stored locally and sent to the configured OpenAI provider; do not enter secrets or confidential content.
+- An answer requires separate model calls for scoring and for the next question, increasing latency and API cost.
 
-## How it works
+### Focused roadmap
 
-The browser sends typed requests to FastAPI. `app/ai.py` asks `gpt-4.1-mini` for Pydantic-shaped responses using OpenAI's structured parsing API. The server scores the returned dimensions with the explicit weights above and saves evaluated rounds in SQLite. When generating the next question, it supplies **the last few answers and weak spots** as additional context. The generated reference design is stored separately from any candidate-written design.
+- [x] Consolidate two interview projects into one codebase
+- [x] Add SQLite-backed sessions, typed AI outputs, rubrics, and testable API boundaries
+- [x] Restore six historical prototype screenshots and actual earlier examples
+- [ ] Record a genuine current-UI prompt → answer → feedback → follow-up GIF
+- [ ] Add browsable session history and cross-session progress reports
+- [ ] Add auth, isolation and rate limiting before deployment
 
-This implementation uses small, inspectable modules instead of putting the entire app into one file:
+## Origins, contributing and license
 
-- `backend/app/ai.py` — prompts and structured model-output handling.
-- `backend/app/main.py` — HTTP endpoints and application state transitions.
-- `backend/app/database.py` — SQLite schema and connections.
-- `backend/app/scoring.py` — public rubric weights, progress summary, and heuristic detection.
-- `backend/app/schemas.py` — Pydantic request and response contracts.
-- `frontend/src/` — React interface, API client, and Mermaid renderer.
+InterviewForge consolidates the ideas behind the [System Design Simulator](https://github.com/vihaank1/System-Design-Simulator) and [AI Technical Interview Simulator](https://github.com/vihaank1/technical-interview-simulator). **Both original repositories are preserved.** The images in \`assets/legacy/\` are unchanged WebP source files retrieved from those repositories (whose original file extensions were \`.png\`).
 
-For endpoint details and architectural decisions, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Current limitations
-
-1. **Not a validated interviewer.** Scores and written feedback come from a language model and have not been calibrated against human interviewers. They can be inconsistent or wrong.
-2. **Local prototype, not a multi-user SaaS.** SQLite persists on the local disk, but there is no authentication, per-user isolation, hosted database, rate limiting, or backup process. Never deploy publicly without addressing these.
-3. **No live demo yet.** An OpenAI key and network access are necessary for end-to-end AI testing. The automated test suite uses mock responses; the UI has been statically syntax-checked, but its dependency-backed build was not runnable in the offline build environment.
-4. **Heuristics aren't architectural proof.** Keyword checks can flag valid designs or miss invalid ones. Mermaid output also depends on model compliance and may occasionally fail to render.
-5. **Two model calls per answer.** Evaluation and next-question generation are separate requests, increasing latency and API usage. Failed provider calls leave the previous answer unsubmitted so it can be retried.
-
-## Focused roadmap
-
-- [x] Merge architecture review and multi-round interviews into one interface.
-- [x] Add SQLite-backed history and weighted evaluation rubrics.
-- [x] Add typed model outputs, automated endpoint tests, and GitHub Actions checks.
-- [ ] Capture a real prompt → answer → targeted follow-up → feedback GIF; verify a paid model session end to end.
-- [ ] Add local session-list browsing and summary analytics across interviews.
-- [ ] Add deployment-ready auth, account boundaries, and API rate limiting.
-
-## Repository status
-
-This standalone repository is published at [vihaank1/InterviewForge](https://github.com/vihaank1/InterviewForge). The original two simulator repositories remain unchanged.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Small bug fixes, tests, and clear reproducible issues are welcome.
-
-## License
-
-[MIT](LICENSE). Independent learning tool; not affiliated with any technology company or hiring program.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance. Licensed under the [MIT License](LICENSE). Not affiliated with any employer or interview program.
